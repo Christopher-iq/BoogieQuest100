@@ -1,4 +1,4 @@
-name: Build Bible Quest Pro v2.4
+name: Build Bible Quest Pro v2.5
 
 on:
   pull_request:
@@ -37,41 +37,60 @@ jobs:
         run: python3 v23_build_patch.py
       - name: Apply v2.4 resume navigation and audio patch
         run: python3 v24_build_patch.py
-      - name: Validate v2.4 source
+      - name: Apply v2.5 exact chapter loader audit patch
+        run: python3 v25_loader_audit_patch.py
+      - name: Validate v2.5 source
         run: |
-          grep -q 'BackHandler(enabled=page!=Page.HOME)' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
-          grep -q 'bible_quest_v24' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
-          grep -q 'quiz_index' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
-          grep -q 'onProgress(idx,score)' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
-          grep -q 'music_volume' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
-          grep -q 'versionName = "2.4.0"' bibleapp/app/build.gradle.kts
-          test -s bibleapp/app/src/main/res/raw/bible_ambient.wav
-      - name: Export v2.4 audited source
+          grep -q 'manifestPath(locale,bookIndex,chapter)' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
+          grep -q 'scripture_cache' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
+          grep -q 'ScriptureRepository(context)' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
+          grep -q 'versionName = "2.5.0"' bibleapp/app/build.gradle.kts
+          test -s bibleapp/app/src/main/assets/bible_manifest.json
+          test -s bibleapp/app/src/main/assets/bible_manifest_audit.txt
+          grep -q $'en-GB\t1189/1189\tmissing=0' bibleapp/app/src/main/assets/bible_manifest_audit.txt
+          grep -q $'hi-IN\t1189/1189\tmissing=0' bibleapp/app/src/main/assets/bible_manifest_audit.txt
+      - name: Show chapter coverage audit
+        run: cat bibleapp/app/src/main/assets/bible_manifest_audit.txt
+      - name: Smoke test difficult chapter paths from manifest
+        run: |
+          python3 - <<'PY'
+          import json, urllib.parse, urllib.request
+          m=json.load(open('bibleapp/app/src/main/assets/bible_manifest.json',encoding='utf-8'))
+          tests=[('en-GB','9','1'),('en-GB','22','1'),('en-GB','19','119'),('hi-IN','9','1'),('hi-IN','22','1'),('hi-IN','19','119')]
+          for lang,b,c in tests:
+              p=m[lang][b][c]
+              url='https://raw.githubusercontent.com/OpenTranslationBible/open-bible/main/'+'/'.join(urllib.parse.quote(x,safe='') for x in p.split('/'))
+              with urllib.request.urlopen(url,timeout=25) as r:
+                  data=json.load(r)
+              assert int(data.get('chapter',0))==int(c), (lang,b,c,p)
+              print('OK',lang,b,c,p)
+          PY
+      - name: Export v2.5 audited source
         run: |
           cd bibleapp
-          zip -qr ../BibleQuestPro-v2.4-patched-source.zip .
-      - name: Upload v2.4 source
+          zip -qr ../BibleQuestPro-v2.5-patched-source.zip .
+      - name: Upload v2.5 source
         uses: actions/upload-artifact@v4
         with:
-          name: BibleQuestPro-v2.4-patched-source
-          path: BibleQuestPro-v2.4-patched-source.zip
+          name: BibleQuestPro-v2.5-patched-source
+          path: BibleQuestPro-v2.5-patched-source.zip
           if-no-files-found: error
       - name: Build APK
         working-directory: bibleapp
         shell: bash
         run: |
           set -o pipefail
-          gradle --no-daemon --stacktrace assembleDebug 2>&1 | tee ../build-v24.log
+          gradle --no-daemon --stacktrace assembleDebug 2>&1 | tee ../build-v25.log
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: BibleQuestPro-v2.4-build-log
-          path: build-v24.log
+          name: BibleQuestPro-v2.5-build-log
+          path: build-v25.log
           if-no-files-found: warn
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: BibleQuestPro-v2.4-Resume-Back-Audio-APK
+          name: BibleQuestPro-v2.5-ChapterLoader-Audit-APK
           path: bibleapp/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
