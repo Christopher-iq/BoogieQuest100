@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.*
@@ -113,9 +114,7 @@ private fun categoryIcon(c:String)=when(c){"Gospels"->"✝";"Acts"->"🔥";"King
        if (reveal) scrollState.animateScrollTo(scrollState.maxValue)
        else scrollState.scrollTo(0)
      }
-     Column(
-       Modifier.fillMaxWidth().verticalScroll(scrollState)
-     ){
+     Column(Modifier.fillMaxWidth().verticalScroll(scrollState)){
        Row{
          Surface(color=Sky.copy(.12f),shape=RoundedCornerShape(12.dp)){
            Text(q.category,Modifier.padding(9.dp),color=Sky,fontSize=10.sp,fontWeight=FontWeight.Black)
@@ -132,13 +131,8 @@ private fun categoryIcon(c:String)=when(c){"Gospels"->"✝";"Acts"->"🔥";"King
          Surface(
            Modifier.fillMaxWidth().padding(vertical=5.dp).clickable(enabled=!reveal){
              picked=i;reveal=true
-             if(i==q.correct){
-               onCorrect(1)
-               if(sound)tone.startTone(ToneGenerator.TONE_PROP_ACK,90)
-             }else{
-               onWrong()
-               if(sound)tone.startTone(ToneGenerator.TONE_PROP_NACK,90)
-             }
+             if(i==q.correct){onCorrect(1);if(sound)tone.startTone(ToneGenerator.TONE_PROP_ACK,90)}
+             else{onWrong();if(sound)tone.startTone(ToneGenerator.TONE_PROP_NACK,90)}
            },
            color=when{good->Mint.copy(.16f);bad->Bad.copy(.14f);else->Panel2},
            shape=RoundedCornerShape(18.dp),
@@ -146,36 +140,23 @@ private fun categoryIcon(c:String)=when(c){"Gospels"->"✝";"Acts"->"🔥";"King
          ){
            Row(Modifier.padding(15.dp)){
              Text("${'A'+i}.",color=if(good)Mint else Sky,fontWeight=FontWeight.Black)
-             Spacer(Modifier.width(10.dp))
-             Text(o,color=Ink,fontWeight=FontWeight.Bold)
+             Spacer(Modifier.width(10.dp));Text(o,color=Ink,fontWeight=FontWeight.Bold)
            }
          }
        }
        AnimatedVisibility(reveal){
          Column{
            Spacer(Modifier.height(15.dp))
-           Surface(
-             color=Gold.copy(.09f),
-             shape=RoundedCornerShape(18.dp),
-             border=BorderStroke(1.dp,Gold.copy(.28f))
-           ){
+           Surface(color=Gold.copy(.09f),shape=RoundedCornerShape(18.dp),border=BorderStroke(1.dp,Gold.copy(.28f))){
              Column(Modifier.padding(14.dp)){
                Text(if(hi)"क्यों?" else "WHY?",color=Gold,fontSize=10.sp,fontWeight=FontWeight.Black)
                Text(if(hi)q.explainHi else q.explainEn,color=Ink,lineHeight=20.sp)
-               Spacer(Modifier.height(7.dp))
-               Text("📖 ${if(hi)q.refHi else q.refEn}",color=Sky,fontWeight=FontWeight.Black,fontSize=12.sp)
+               Spacer(Modifier.height(7.dp));Text("📖 ${if(hi)q.refHi else q.refEn}",color=Sky,fontWeight=FontWeight.Black,fontSize=12.sp)
              }
            }
            Spacer(Modifier.height(12.dp))
-           HeroButton(
-             if(index==questions.lastIndex){if(hi)"परिणाम देखें" else "SEE RESULTS"}
-             else{if(hi)"अगला प्रश्न" else "NEXT QUESTION"},
-             "→"
-           ){
-             if(index==questions.lastIndex) onDone()
-             else{
-               index++;picked=-1;reveal=false
-             }
+           HeroButton(if(index==questions.lastIndex){if(hi)"परिणाम देखें" else "SEE RESULTS"}else{if(hi)"अगला प्रश्न" else "NEXT QUESTION"},"→"){
+             if(index==questions.lastIndex) onDone() else{index++;picked=-1;reveal=false}
            }
            Spacer(Modifier.height(12.dp))
          }
@@ -183,7 +164,6 @@ private fun categoryIcon(c:String)=when(c){"Gospels"->"✝";"Acts"->"🔥";"King
      }
    }
  }}}
-}
 
 @Composable private fun Result(hi:Boolean,score:Int,total:Int,p:Player,home:()->Unit,again:()->Unit){Column(Modifier.fillMaxSize()){Top(if(hi)"क्विज़ पूर्ण" else "Quest Complete",p.coins);Column(Modifier.padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally){Spacer(Modifier.height(35.dp));Box(Modifier.size(130.dp).clip(CircleShape).background(Brush.radialGradient(listOf(Gold,Sky))),contentAlignment=Alignment.Center){Text(if(score>=total*.8)"🏆" else "📖",fontSize=58.sp)};Spacer(Modifier.height(20.dp));Text("$score / $total",color=Ink,fontSize=44.sp,fontWeight=FontWeight.Black);Text(if(hi)"सही उत्तर" else "correct answers",color=Muted);Spacer(Modifier.height(18.dp));Glass(Modifier.fillMaxWidth()){Text(if(hi)"इनाम" else "REWARDS EARNED",color=Gold,fontWeight=FontWeight.Black,fontSize=10.sp);Text("+${score*10} XP    +${score*2} ✦",color=Ink,fontSize=23.sp,fontWeight=FontWeight.Black)};Spacer(Modifier.height(14.dp));HeroButton(if(hi)"फिर से खेलें" else "PLAY AGAIN","↻",again);Spacer(Modifier.height(10.dp));OutlinedButton(onClick=home,modifier=Modifier.fillMaxWidth()){Text(if(hi)"होम" else "BACK HOME",color=Sky)}}}}
 @Composable private fun Rewards(hi:Boolean,p:Player,back:()->Unit){Column(Modifier.fillMaxSize()){Top(if(hi)"इनाम" else "Rewards",p.coins,onBack=back);LazyColumn(contentPadding=PaddingValues(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Glass(Modifier.fillMaxWidth()){Text(if(hi)"आपका स्तर" else "YOUR LEVEL",color=Gold,fontSize=10.sp,fontWeight=FontWeight.Black);Text("${p.xp/100+1}",color=Ink,fontSize=42.sp,fontWeight=FontWeight.Black);LinearProgressIndicator(progress={(p.xp%100)/100f},modifier=Modifier.fillMaxWidth(),color=Sky,trackColor=Panel2)}};items(listOf("📖 First Steps" to 1,"🔥 7-Day Faithful" to 7,"🏆 Bible Scholar" to 20,"✝ Gospel Master" to 40,"👑 Scripture Champion" to 80)){(name,need)->Glass(Modifier.fillMaxWidth()){Row{Text(name,color=Ink,fontWeight=FontWeight.Black,modifier=Modifier.weight(1f));Text(if(p.correct>=need)"✓" else "${p.correct}/$need",color=if(p.correct>=need)Mint else Muted)}}}}}}
