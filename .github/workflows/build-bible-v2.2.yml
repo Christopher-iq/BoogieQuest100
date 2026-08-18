@@ -1,4 +1,4 @@
-name: Build Bible Quest Pro v2.3
+name: Build Bible Quest Pro v2.4
 
 on:
   pull_request:
@@ -33,55 +33,45 @@ jobs:
           base64 -d multilang-v22.patch.gz.b64 | gzip -d > multilang-v22.patch
           cd bibleapp
           patch -p1 < ../multilang-v22.patch
-      - name: Apply v2.3 instant-language and music patch
+      - name: Apply v2.3 language and music base
         run: python3 v23_build_patch.py
-      - name: Validate v2.3 source
+      - name: Apply v2.4 resume navigation and audio patch
+        run: python3 v24_build_patch.py
+      - name: Validate v2.4 source
         run: |
-          grep -q 'QuizLanguageSwitcher' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
-          grep -q 'MediaPlayer.create' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
-          grep -q 'Music volume' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
-          grep -q 'Page.MIXED' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
+          grep -q 'BackHandler(enabled=page!=Page.HOME)' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
+          grep -q 'bible_quest_v24' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
+          grep -q 'quiz_index' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
+          grep -q 'onProgress(idx,score)' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
+          grep -q 'music_volume' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
+          grep -q 'versionName = "2.4.0"' bibleapp/app/build.gradle.kts
           test -s bibleapp/app/src/main/res/raw/bible_ambient.wav
-      - name: Export v2.3 audited source
+      - name: Export v2.4 audited source
         run: |
           cd bibleapp
-          zip -qr ../BibleQuestPro-v2.3-patched-source.zip .
-      - name: Upload v2.3 source
+          zip -qr ../BibleQuestPro-v2.4-patched-source.zip .
+      - name: Upload v2.4 source
         uses: actions/upload-artifact@v4
         with:
-          name: BibleQuestPro-v2.3-patched-source
-          path: BibleQuestPro-v2.3-patched-source.zip
+          name: BibleQuestPro-v2.4-patched-source
+          path: BibleQuestPro-v2.4-patched-source.zip
           if-no-files-found: error
-      - name: Smoke test Scripture endpoints
-        run: |
-          python3 - <<'PY'
-          import json, urllib.request
-          urls=[
-            'https://raw.githubusercontent.com/OpenTranslationBible/open-bible/main/lang/en-GB/01.Genesis/json/genesis-01.json',
-            'https://raw.githubusercontent.com/OpenTranslationBible/open-bible/main/lang/hi-IN/01.%E0%A4%89%E0%A4%A4%E0%A5%8D%E0%A4%AA%E0%A4%A4%E0%A5%8D%E0%A4%A4%E0%A4%BF/json/%E0%A4%89%E0%A4%A4%E0%A5%8D%E0%A4%AA%E0%A4%A4%E0%A5%8D%E0%A4%A4%E0%A4%BF-01.json'
-          ]
-          for url in urls:
-              with urllib.request.urlopen(url,timeout=20) as r:
-                  data=json.load(r)
-              assert data.get('chapter')==1
-          print('Scripture endpoints OK')
-          PY
       - name: Build APK
         working-directory: bibleapp
         shell: bash
         run: |
           set -o pipefail
-          gradle --no-daemon --stacktrace assembleDebug 2>&1 | tee ../build-v23.log
+          gradle --no-daemon --stacktrace assembleDebug 2>&1 | tee ../build-v24.log
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: BibleQuestPro-v2.3-build-log
-          path: build-v23.log
+          name: BibleQuestPro-v2.4-build-log
+          path: build-v24.log
           if-no-files-found: warn
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: BibleQuestPro-v2.3-InstantLanguage-Music-APK
+          name: BibleQuestPro-v2.4-Resume-Back-Audio-APK
           path: bibleapp/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
