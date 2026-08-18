@@ -1,14 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:allowBackup="true"
-        android:fullBackupContent="true"
         android:icon="@drawable/ic_launcher"
-        android:label="Boogie Quest"
         android:roundIcon="@drawable/ic_launcher"
+        android:label="Bible Quest Pro"
         android:supportsRtl="true"
         android:theme="@style/Theme.BoogieQuest">
         <activity
-            android:name=".MainActivity"
+            android:name="com.biblequest.pro.MainActivity"
             android:exported="true"
             android:screenOrientation="portrait">
             <intent-filter>

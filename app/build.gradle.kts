@@ -5,14 +5,14 @@ plugins {
 }
 
 android {
-    namespace = "com.boogie.quest"
+    namespace = "com.biblequest.pro"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.boogie.quest"
+        applicationId = "com.biblequest.pro"
         minSdk = 24
         targetSdk = 36
-        versionCode = 100
+        versionCode = 1
         versionName = "1.0.0"
     }
 
@@ -23,17 +23,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-
-    buildTypes {
-        release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
 }
 
 dependencies {
