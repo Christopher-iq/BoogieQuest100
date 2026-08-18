@@ -1,8 +1,6 @@
-name: Build Android APK
+name: Build Bible Quest Pro v2
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -29,13 +27,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Validate catalog
-        run: python3 tools/validate_project.py
-      - name: Build debug APK
+      - name: Unpack Bible app
+        run: mkdir bibleapp && unzip -q BibleQuestPro-v2-source.zip -d bibleapp
+      - name: Build APK
+        working-directory: bibleapp
         run: gradle --no-daemon --stacktrace assembleDebug
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: BoogieQuest100-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: BibleQuestPro-v2-APK
+          path: bibleapp/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
