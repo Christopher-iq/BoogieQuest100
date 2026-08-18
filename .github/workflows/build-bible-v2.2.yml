@@ -47,12 +47,18 @@ jobs:
           cd bibleapp
           patch -p1 < ../multilang-v22.patch
 
-      - name: Apply robust chapter loader and retry fix
+      - name: Apply robust chapter loader retry and compile fix
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt')
           s=p.read_text(encoding='utf-8')
+          marker='import androidx.compose.ui.graphics.*\n'
+          needed='import androidx.compose.ui.geometry.Offset\n'
+          if needed not in s:
+              if marker not in s:
+                  raise SystemExit('graphics import marker not found')
+              s=s.replace(marker,marker+needed,1)
           old='''        val display=folder.substringAfter('.',folder)\n        val file="$display-${chapter.toString().padStart(2,'0')}.json"\n        val path="lang/$locale/${Uri.encode(folder)}/json/${Uri.encode(file)}"\n        val url="https://raw.githubusercontent.com/OpenTranslationBible/open-bible/main/$path"\n        val obj=JSONObject(get(url))\n'''
           new='''        val display=folder.substringAfter('.',folder)\n        val chapterTag=chapter.toString().padStart(2,'0')\n        val slug=display.lowercase(java.util.Locale.ROOT).trim().replace(Regex("\\\\s+"), "-")\n        val file="$slug-$chapterTag.json"\n        val path="lang/$locale/${Uri.encode(folder)}/json/${Uri.encode(file)}"\n        val directUrl="https://raw.githubusercontent.com/OpenTranslationBible/open-bible/main/$path"\n        val rawChapter = try {\n            get(directUrl)\n        } catch (e: Exception) {\n            val dirApi="https://api.github.com/repos/OpenTranslationBible/open-bible/contents/lang/$locale/${Uri.encode(folder)}/json"\n            val listing=JSONArray(get(dirApi))\n            val suffix="-$chapterTag.json"\n            val downloadUrl=(0 until listing.length()).mapNotNull { i ->\n                val item=listing.getJSONObject(i)\n                val name=item.optString("name")\n                if(item.optString("type")=="file" && name.endsWith(suffix, ignoreCase=true))\n                    item.optString("download_url").takeIf { it.isNotBlank() } else null\n            }.firstOrNull() ?: throw e\n            get(downloadUrl)\n        }\n        val obj=JSONObject(rawChapter)\n'''
           if old in s:
@@ -67,13 +73,14 @@ jobs:
           s=s.replace('"network" to "Internet is needed the first time a chapter is opened."','"network" to "Couldn’t load this chapter. Check your connection and try again."')
           s=s.replace('"network" to "किसी अध्याय को पहली बार खोलने के लिए इंटरनेट चाहिए।"','"network" to "यह अध्याय लोड नहीं हो सका। कनेक्शन जाँचें और फिर प्रयास करें।"')
           p.write_text(s,encoding='utf-8')
-          print('Multilingual + network fixes ready')
+          print('Multilingual + network + Offset fixes ready')
           PY
 
       - name: Validate multilingual source
         run: |
           grep -q 'object QuizText' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
           grep -q 'Page.MIXED' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
+          grep -q 'import androidx.compose.ui.geometry.Offset' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
           grep -q '"fr-FR" to QL' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
           grep -q '"ar-EG" to QL' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
           grep -q '"ml-IN" to QL' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
