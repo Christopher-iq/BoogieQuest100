@@ -1,0 +1,101 @@
+name: Build Bible Quest Pro v2
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 36
+        run: yes | sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Rebuild source archive
+        run: cat source.part0 source.part1 source.part2 source.part3 | base64 -d > BibleQuestPro-v2-source.zip
+      - name: Validate archive
+        run: unzip -t BibleQuestPro-v2-source.zip
+      - name: Unpack Bible app
+        run: mkdir bibleapp && unzip -q BibleQuestPro-v2-source.zip -d bibleapp
+      - name: Apply compile and chapter loading fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt')
+          s = p.read_text(encoding='utf-8')
+
+          marker = 'import androidx.compose.ui.graphics.*\n'
+          needed = 'import androidx.compose.ui.geometry.Offset\n'
+          if needed not in s:
+              if marker not in s:
+                  raise SystemExit('Expected graphics import marker not found')
+              s = s.replace(marker, marker + needed, 1)
+
+          old = '''        val display=folder.substringAfter('.',folder)\n        val file="$display-${chapter.toString().padStart(2,'0')}.json"\n        val path="lang/$locale/${Uri.encode(folder)}/json/${Uri.encode(file)}"\n        val url="https://raw.githubusercontent.com/OpenTranslationBible/open-bible/main/$path"\n        val obj=JSONObject(get(url))\n'''
+          new = '''        val display=folder.substringAfter('.',folder)\n        val chapterTag=chapter.toString().padStart(2,'0')\n        val slug=display.lowercase(java.util.Locale.ROOT)\n            .trim()\n            .replace(Regex("\\\\s+"), "-")\n        val file="$slug-$chapterTag.json"\n        val path="lang/$locale/${Uri.encode(folder)}/json/${Uri.encode(file)}"\n        val directUrl="https://raw.githubusercontent.com/OpenTranslationBible/open-bible/main/$path"\n        val rawChapter = try {\n            get(directUrl)\n        } catch (e: Exception) {\n            val dirApi="https://api.github.com/repos/OpenTranslationBible/open-bible/contents/lang/$locale/${Uri.encode(folder)}/json"\n            val listing=JSONArray(get(dirApi))\n            val suffix="-$chapterTag.json"\n            val downloadUrl=(0 until listing.length()).mapNotNull { i ->\n                val item=listing.getJSONObject(i)\n                val name=item.optString("name")\n                if(item.optString("type")=="file" && name.endsWith(suffix, ignoreCase=true))\n                    item.optString("download_url").takeIf { it.isNotBlank() } else null\n            }.firstOrNull() ?: throw e\n            get(downloadUrl)\n        }\n        val obj=JSONObject(rawChapter)\n'''
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif 'val chapterTag=chapter.toString().padStart' not in s:
+              raise SystemExit('Expected old chapter loader block not found')
+
+          old_retry = '''    var qs by remember{mutableStateOf(emptyList<AutoQ>())}\n    LaunchedEffect(l.code,book.number,chapter){\n'''
+          new_retry = '''    var qs by remember{mutableStateOf(emptyList<AutoQ>())}\n    var retryKey by remember{mutableIntStateOf(0)}\n    LaunchedEffect(l.code,book.number,chapter,retryKey){\n'''
+          if old_retry in s:
+              s = s.replace(old_retry, new_retry, 1)
+
+          old_button = 'Primary(I18n.t(l.code,"retry"),{back()},Modifier.fillMaxWidth())'
+          new_button = 'Primary(I18n.t(l.code,"retry"),{retryKey++},Modifier.fillMaxWidth())'
+          s = s.replace(old_button, new_button, 1)
+          s = s.replace('"network" to "Internet is needed the first time a chapter is opened."','"network" to "Couldn’t load this chapter. Check your connection and try again."')
+          s = s.replace('"network" to "किसी अध्याय को पहली बार खोलने के लिए इंटरनेट चाहिए।"','"network" to "यह अध्याय लोड नहीं हो सका। कनेक्शन जाँचें और फिर प्रयास करें।"')
+
+          p.write_text(s, encoding='utf-8')
+          print('Runtime chapter loader fix applied')
+          PY
+      - name: Smoke test Genesis 1 Scripture endpoint
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request
+          url='https://raw.githubusercontent.com/OpenTranslationBible/open-bible/main/lang/en-GB/01.Genesis/json/genesis-01.json'
+          with urllib.request.urlopen(url, timeout=20) as r:
+              data=json.load(r)
+          assert data['book']=='Genesis'
+          assert data['chapter']==1
+          assert any(v.get('verse')==1 for v in data['verses'])
+          print('Genesis 1 endpoint OK with', len(data['verses']), 'entries')
+          PY
+      - name: Build APK
+        working-directory: bibleapp
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace assembleDebug 2>&1 | tee ../build.log
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BibleQuestPro-v2.1-build-log
+          path: build.log
+          if-no-files-found: warn
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BibleQuestPro-v2.1-APK
+          path: bibleapp/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
