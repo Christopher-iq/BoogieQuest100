@@ -33,6 +33,21 @@ jobs:
         run: unzip -t BibleQuestPro-v2-source.zip
       - name: Unpack Bible app
         run: mkdir bibleapp && unzip -q BibleQuestPro-v2-source.zip -d bibleapp
+      - name: Apply compile fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt')
+          s = p.read_text(encoding='utf-8')
+          marker = 'import androidx.compose.ui.graphics.*\n'
+          needed = 'import androidx.compose.ui.geometry.Offset\n'
+          if needed not in s:
+              if marker not in s:
+                  raise SystemExit('Expected graphics import marker not found')
+              s = s.replace(marker, marker + needed, 1)
+              p.write_text(s, encoding='utf-8')
+          print('Offset import present:', needed.strip() in p.read_text(encoding='utf-8'))
+          PY
       - name: Build APK
         working-directory: bibleapp
         shell: bash
