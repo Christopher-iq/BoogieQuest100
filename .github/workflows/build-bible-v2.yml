@@ -35,7 +35,17 @@ jobs:
         run: mkdir bibleapp && unzip -q BibleQuestPro-v2-source.zip -d bibleapp
       - name: Build APK
         working-directory: bibleapp
-        run: gradle --no-daemon --stacktrace assembleDebug
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace assembleDebug 2>&1 | tee ../build.log
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BibleQuestPro-v2-build-log
+          path: build.log
+          if-no-files-found: warn
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
