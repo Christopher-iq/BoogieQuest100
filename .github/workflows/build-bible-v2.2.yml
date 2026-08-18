@@ -42,6 +42,16 @@ jobs:
           grep -q 'Music volume' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
           grep -q 'Page.MIXED' bibleapp/app/src/main/java/com/biblequest/pro/MainActivity.kt
           test -s bibleapp/app/src/main/res/raw/bible_ambient.wav
+      - name: Export v2.3 audited source
+        run: |
+          cd bibleapp
+          zip -qr ../BibleQuestPro-v2.3-patched-source.zip .
+      - name: Upload v2.3 source
+        uses: actions/upload-artifact@v4
+        with:
+          name: BibleQuestPro-v2.3-patched-source
+          path: BibleQuestPro-v2.3-patched-source.zip
+          if-no-files-found: error
       - name: Smoke test Scripture endpoints
         run: |
           python3 - <<'PY'
