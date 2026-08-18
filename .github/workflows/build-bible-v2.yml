@@ -27,6 +27,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
+      - name: Rebuild source archive
+        run: cat source.part0 source.part1 source.part2 source.part3 | base64 -d > BibleQuestPro-v2-source.zip
+      - name: Validate archive
+        run: unzip -t BibleQuestPro-v2-source.zip
       - name: Unpack Bible app
         run: mkdir bibleapp && unzip -q BibleQuestPro-v2-source.zip -d bibleapp
       - name: Build APK
