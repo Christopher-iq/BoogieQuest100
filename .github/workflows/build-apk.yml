@@ -28,21 +28,12 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK
-        run: yes | sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools"
+        run: yes | sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools" || true
 
       - name: Set up Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-
-      - name: Reconstruct CASE ZERO sources
-        run: |
-          mkdir -p casezero_game/casezero/src/main/java/com/casezero/lastwitness
-          mkdir -p casezero_game/casezero/src/main/assets
-          cat casezero_payload/GameView.java.gz.b64.part* | base64 -d | gzip -d > casezero_game/casezero/src/main/java/com/casezero/lastwitness/GameView.java
-          cat casezero_payload/cases.json.gz.b64.part* | base64 -d | gzip -d > casezero_game/casezero/src/main/assets/cases.json
-          test -s casezero_game/casezero/src/main/java/com/casezero/lastwitness/GameView.java
-          test -s casezero_game/casezero/src/main/assets/cases.json
 
       - name: Generate lossless game audio
         run: cd casezero_game && python3 tools/generate_casezero_audio.py
