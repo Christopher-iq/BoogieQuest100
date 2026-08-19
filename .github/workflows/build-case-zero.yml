@@ -33,7 +33,10 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Generate lossless game audio
+      - name: Apply bright isometric visual overhaul
+        run: cd casezero_game && python3 tools/apply_bright_visuals.py
+
+      - name: Generate lossless cozy mystery audio
         run: cd casezero_game && python3 tools/generate_casezero_audio.py
 
       - name: Build installable debug APK
@@ -52,19 +55,19 @@ jobs:
             sleep 5
             adb logcat -d -v brief > startup-logcat.txt || true
             adb shell pidof com.casezero.lastwitness.debug | grep -Eq '[0-9]+'
-            adb exec-out screencap -p > casezero-startup.png
+            adb exec-out screencap -p > casezero-v2-startup.png
 
       - name: Prepare APK artifact
         run: |
           mkdir -p release
-          cp casezero_game/casezero/build/outputs/apk/debug/casezero-debug.apk release/CaseZero-TheLastWitness-v1.0.1.apk
-          ls -lh release/CaseZero-TheLastWitness-v1.0.1.apk
+          cp casezero_game/casezero/build/outputs/apk/debug/casezero-debug.apk release/CaseZero-TheLastWitness-v2.0-Bright.apk
+          ls -lh release/CaseZero-TheLastWitness-v2.0-Bright.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: CaseZero-TheLastWitness-v1.0.1-APK
-          path: release/CaseZero-TheLastWitness-v1.0.1.apk
+          name: CaseZero-TheLastWitness-v2.0-Bright-APK
+          path: release/CaseZero-TheLastWitness-v2.0-Bright.apk
           if-no-files-found: error
           compression-level: 0
 
@@ -72,8 +75,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: CaseZero-startup-diagnostics
+          name: CaseZero-v2-startup-diagnostics
           path: |
             startup-logcat.txt
-            casezero-startup.png
+            casezero-v2-startup.png
           if-no-files-found: ignore
