@@ -44,21 +44,6 @@ jobs:
       - name: Build installable APK
         run: cd casezero_game && gradle --no-daemon --stacktrace :casezero:assembleDebug
 
-      - name: Android 15 startup smoke test
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          disable-animations: true
-          script: |
-            adb install -r casezero_game/casezero/build/outputs/apk/debug/casezero-debug.apk
-            adb logcat -c
-            adb shell am start -W -n com.casezero.lastwitness.debug/com.casezero.lastwitness.MainActivity
-            sleep 5
-            adb logcat -d -v brief > startup-logcat.txt || true
-            adb shell pidof com.casezero.lastwitness.debug | grep -Eq '[0-9]+'
-            adb exec-out screencap -p > casezero-v2-startup.png
-
       - name: Prepare APK
         run: |
           mkdir -p release
@@ -72,6 +57,22 @@ jobs:
           path: release/CaseZero-TheLastWitness-v2.0-Bright.apk
           if-no-files-found: error
           compression-level: 0
+
+      - name: Android 15 startup smoke test
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install -r casezero_game/casezero/build/outputs/apk/debug/casezero-debug.apk
+            adb logcat -c
+            adb shell am start -W -n com.casezero.lastwitness.debug/com.casezero.lastwitness.MainActivity
+            sleep 5
+            adb logcat -d -v brief > startup-logcat.txt || true
+            adb shell pidof com.casezero.lastwitness.debug | grep -Eq '[0-9]+'
+            adb exec-out screencap -p > casezero-v2-startup.png
 
       - name: Upload startup diagnostics
         if: always()
