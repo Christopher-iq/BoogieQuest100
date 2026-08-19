@@ -14,11 +14,9 @@ def write_stereo(name, seconds, fn):
     path = OUT / name
     with wave.open(str(path), 'wb') as w:
         w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR)
-        frames = bytearray()
-        total = int(seconds * SR)
+        frames = bytearray(); total = int(seconds * SR)
         for i in range(total):
-            t = i / SR
-            l, r = fn(t, i)
+            t = i / SR; l, r = fn(t, i)
             frames += struct.pack('<hh', int(clamp(l)*32767), int(clamp(r)*32767))
             if len(frames) >= 262144:
                 w.writeframesraw(frames); frames.clear()
@@ -35,28 +33,32 @@ def write_mono(name, seconds, fn):
         w.writeframes(frames)
     print(path, path.stat().st_size)
 
-noise_l = 0.0
-noise_r = 0.0
+# Bright cozy-mystery ambience: room tone, gentle mallets and a curious bass pulse.
+noise_l = 0.0; noise_r = 0.0
 
 def noir(t, i):
     global noise_l, noise_r
-    noise_l = noise_l * 0.965 + (random.random()*2-1) * 0.035
-    noise_r = noise_r * 0.963 + (random.random()*2-1) * 0.037
-    rain_l = noise_l * 0.14
-    rain_r = noise_r * 0.14
-    breath = 0.58 + 0.16*math.sin(2*math.pi*0.043*t)
-    l = 0.050*math.sin(2*math.pi*110.0*t) + 0.032*math.sin(2*math.pi*130.81*t+0.7) + 0.021*math.sin(2*math.pi*164.81*t+1.8)
-    r = 0.047*math.sin(2*math.pi*109.7*t+0.14) + 0.034*math.sin(2*math.pi*131.1*t+0.9) + 0.020*math.sin(2*math.pi*164.55*t+2.0)
-    cyc = t % 13.0
-    thunder = math.exp(-((cyc-2.0)/1.8)**2) * math.sin(2*math.pi*43*t) * 0.045
-    return (rain_l + l*breath + thunder, rain_r + r*breath + thunder*0.94)
+    noise_l = noise_l * 0.975 + (random.random()*2-1) * 0.025
+    noise_r = noise_r * 0.974 + (random.random()*2-1) * 0.026
+    room_l = noise_l * 0.018; room_r = noise_r * 0.018
+    swell = 0.62 + 0.12*math.sin(2*math.pi*0.055*t)
+    freqs = (130.81, 164.81, 196.00, 220.00)
+    l = sum(math.sin(2*math.pi*f*t + j*.33) for j,f in enumerate(freqs))*0.010*swell
+    r = sum(math.sin(2*math.pi*(f*1.001)*t + j*.47) for j,f in enumerate(freqs))*0.010*swell
+    beat = t % 8.0; bell = 0.0
+    for at,f in [(0.0,523.25),(2.0,659.25),(4.0,587.33),(6.0,783.99)]:
+        dt = beat-at
+        if 0 <= dt < .7:
+            bell += (math.sin(2*math.pi*f*dt)+.35*math.sin(2*math.pi*f*2*dt))*math.exp(-dt*6)*0.035
+    bass = math.sin(2*math.pi*65.41*t)*0.018
+    return (room_l+l+bell+bass, room_r+r+bell*.92+bass*.96)
 
 def tension_fn(t, i):
-    pulse = max(0.0, math.sin(2*math.pi*0.92*t))**10
-    bass = math.sin(2*math.pi*55*t)*0.075 + math.sin(2*math.pi*82.41*t+0.3)*0.025
-    high = math.sin(2*math.pi*220*t + 0.35*math.sin(2*math.pi*.13*t))*0.012
-    click = pulse * math.exp(-((t*4)%1)*9) * 0.07
-    return (bass+high+click, bass*0.96-high+click*0.82)
+    pulse = max(0.0, math.sin(2*math.pi*0.78*t))**12
+    bass = math.sin(2*math.pi*73.42*t)*0.045 + math.sin(2*math.pi*110*t+0.3)*0.018
+    tick = pulse * math.exp(-((t*3)%1)*10) * 0.045
+    shimmer = math.sin(2*math.pi*293.66*t + 0.22*math.sin(2*math.pi*.11*t))*0.008
+    return (bass+tick+shimmer, bass*.95+tick*.86-shimmer)
 
 write_stereo('noir_ambient.wav', 48.0, noir)
 write_stereo('tension_loop.wav', 34.0, tension_fn)
