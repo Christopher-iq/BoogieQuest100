@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,21 +26,12 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK
-        run: yes | sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools"
+        run: yes | sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools" || true
 
       - name: Set up Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-
-      - name: Reconstruct game source and case data
-        run: |
-          mkdir -p casezero_game/casezero/src/main/java/com/casezero/lastwitness
-          mkdir -p casezero_game/casezero/src/main/assets
-          cat casezero_payload/GameView.java.gz.b64.part* | base64 -d | gzip -d > casezero_game/casezero/src/main/java/com/casezero/lastwitness/GameView.java
-          cat casezero_payload/cases.json.gz.b64.part* | base64 -d | gzip -d > casezero_game/casezero/src/main/assets/cases.json
-          test -s casezero_game/casezero/src/main/java/com/casezero/lastwitness/GameView.java
-          test -s casezero_game/casezero/src/main/assets/cases.json
 
       - name: Generate lossless game audio
         run: cd casezero_game && python3 tools/generate_casezero_audio.py
@@ -48,16 +39,47 @@ jobs:
       - name: Build installable debug APK
         run: cd casezero_game && gradle --no-daemon --stacktrace :casezero:assembleDebug
 
+      - name: Android 15 startup smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install -r casezero_game/casezero/build/outputs/apk/debug/casezero-debug.apk
+            adb logcat -c
+            adb shell am start -W -n com.casezero.lastwitness.debug/com.casezero.lastwitness.MainActivity || true
+            sleep 5
+            PID=$(adb shell pidof com.casezero.lastwitness.debug | tr -d '\r')
+            echo "PID=$PID"
+            adb logcat -d -v brief > startup-logcat.txt || true
+            tail -250 startup-logcat.txt || true
+            if [ -z "$PID" ]; then
+              echo "CASE ZERO crashed during startup"
+              exit 1
+            fi
+            adb exec-out screencap -p > casezero-startup.png
+
       - name: Prepare APK artifact
         run: |
           mkdir -p release
-          cp casezero_game/casezero/build/outputs/apk/debug/casezero-debug.apk release/CaseZero-TheLastWitness-v1.0.apk
-          ls -lh release/CaseZero-TheLastWitness-v1.0.apk
+          cp casezero_game/casezero/build/outputs/apk/debug/casezero-debug.apk release/CaseZero-TheLastWitness-v1.0.1.apk
+          ls -lh release/CaseZero-TheLastWitness-v1.0.1.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: CaseZero-TheLastWitness-v1.0-APK
-          path: release/CaseZero-TheLastWitness-v1.0.apk
+          name: CaseZero-TheLastWitness-v1.0.1-APK
+          path: release/CaseZero-TheLastWitness-v1.0.1.apk
           if-no-files-found: error
           compression-level: 0
+
+      - name: Upload startup diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CaseZero-startup-diagnostics
+          path: |
+            startup-logcat.txt
+            casezero-startup.png
+          if-no-files-found: ignore
