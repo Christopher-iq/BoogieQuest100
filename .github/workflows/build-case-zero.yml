@@ -48,16 +48,10 @@ jobs:
           script: |
             adb install -r casezero_game/casezero/build/outputs/apk/debug/casezero-debug.apk
             adb logcat -c
-            adb shell am start -W -n com.casezero.lastwitness.debug/com.casezero.lastwitness.MainActivity || true
+            adb shell am start -W -n com.casezero.lastwitness.debug/com.casezero.lastwitness.MainActivity
             sleep 5
-            PID=$(adb shell pidof com.casezero.lastwitness.debug | tr -d '\r')
-            echo "PID=$PID"
             adb logcat -d -v brief > startup-logcat.txt || true
-            tail -250 startup-logcat.txt || true
-            if [ -z "$PID" ]; then
-              echo "CASE ZERO crashed during startup"
-              exit 1
-            fi
+            adb shell pidof com.casezero.lastwitness.debug | grep -Eq '[0-9]+'
             adb exec-out screencap -p > casezero-startup.png
 
       - name: Prepare APK artifact
