@@ -1,10 +1,8 @@
-name: Build CASE ZERO Bright Android APK
+name: Build CASE ZERO Android APK
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: [ case-zero-full-game ]
   workflow_dispatch:
 
 permissions:
@@ -41,25 +39,10 @@ jobs:
       - name: Generate lossless cozy mystery audio
         run: cd casezero_game && python3 tools/generate_casezero_audio.py
 
-      - name: Build installable APK
+      - name: Build installable debug APK
         run: cd casezero_game && gradle --no-daemon --stacktrace :casezero:assembleDebug
 
-      - name: Prepare APK
-        run: |
-          mkdir -p release
-          cp casezero_game/casezero/build/outputs/apk/debug/casezero-debug.apk release/CaseZero-TheLastWitness-v2.0-Bright.apk
-          ls -lh release/CaseZero-TheLastWitness-v2.0-Bright.apk
-
-      - name: Upload CASE ZERO APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: CaseZero-TheLastWitness-v2.0-Bright-APK
-          path: release/CaseZero-TheLastWitness-v2.0-Bright.apk
-          if-no-files-found: error
-          compression-level: 0
-
       - name: Android 15 startup smoke test
-        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -73,6 +56,20 @@ jobs:
             adb logcat -d -v brief > startup-logcat.txt || true
             adb shell pidof com.casezero.lastwitness.debug | grep -Eq '[0-9]+'
             adb exec-out screencap -p > casezero-v2-startup.png
+
+      - name: Prepare APK artifact
+        run: |
+          mkdir -p release
+          cp casezero_game/casezero/build/outputs/apk/debug/casezero-debug.apk release/CaseZero-TheLastWitness-v2.0-Bright.apk
+          ls -lh release/CaseZero-TheLastWitness-v2.0-Bright.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CaseZero-TheLastWitness-v2.0-Bright-APK
+          path: release/CaseZero-TheLastWitness-v2.0-Bright.apk
+          if-no-files-found: error
+          compression-level: 0
 
       - name: Upload startup diagnostics
         if: always()
